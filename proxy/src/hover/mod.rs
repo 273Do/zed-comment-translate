@@ -51,9 +51,6 @@ impl HoverTranslator {
             return message;
         }
 
-        let url = self.translator.page_url(&texts.join("\n"));
-        let link = provider_link(open_in_label(self.translator.provider().kind()), &url);
-
         let value = match self.translator.translate_all(&texts).await {
             Ok(translations) => {
                 let translations: HashMap<&str, &str> = texts
@@ -63,14 +60,15 @@ impl HoverTranslator {
                         Some((text.as_str(), translation.as_deref()?))
                     })
                     .collect();
-                // Everything was already in the target language.
                 if translations.is_empty() {
                     return message;
                 }
+                let url = self.translator.page_url(&texts.join("\n"));
+                let link = provider_link(open_in_label(self.translator.provider().kind()), &url);
                 let original_label = self.show_original.then_some(ORIGINAL_LABEL);
                 compose(&blocks, &translations, Some(&link), original_label)
             }
-            Err(reason) => format!("{link}\n\n*{}*\n\n{markdown}", unavailable_notice(reason)),
+            Err(reason) => format!("*{}*\n\n{markdown}", unavailable_notice(reason)),
         };
         *contents = json!({ "kind": "markdown", "value": value });
         message
