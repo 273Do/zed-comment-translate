@@ -23,7 +23,7 @@ language, translated with [Google Translate](https://translate.google.com/) or
 - Translates consecutive line comments together, and never mistakes strings
   for comments.
 - Keeps code blocks and inline code in comments as is.
-- Supports Google Translate (no API key needed) and DeepL (Free and Pro keys).
+- Supports the Google Cloud Translation API and DeepL (Free and Pro keys).
 - Caches translations on disk, keyed by the source text: cached translations
   are shown instantly, offline and after a restart.
 - Shows the reason when a translation is unavailable (offline, failed, or
@@ -60,8 +60,9 @@ servers' hovers, which are left untouched.
 > Until the extension is published, install it from source instead: see
 > [Development](#development).
 
-No other setup is needed: comments are translated in every supported
-language.
+Then set an API key for Google or DeepL (see [API keys](#api-keys)).
+Comments are then translated in every supported language. Without a key,
+hovers say that a key is needed.
 
 The server is looked up in this order: `lsp.comment-translate.binary.path`,
 your shell `PATH`, then an automatic download from GitHub Releases.
@@ -76,6 +77,7 @@ All settings are optional:
     "comment-translate": {
       "settings": {
         "provider": "google",
+        "google_api_key": "",
         "deepl_api_key": "",
         "target_language": "ja",
         "source_language": "auto",
@@ -90,7 +92,8 @@ All settings are optional:
 | Key               | Default    | Description                                                                                                                                                                                                       |
 | ----------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `provider`        | `"google"` | `"google"` or `"deepl"`                                                                                                                                                                                           |
-| `deepl_api_key`   | none       | [DeepL API key](https://www.deepl.com/ja/pro?cta=header-pro-api%2F#api). Free keys ending in `:fx` use the Free API. Can also be set with the `DEEPL_API_KEY` environment variable. Falls back to Google if unset |
+| `google_api_key`  | none       | Google Cloud Translation API key. Can also be set with the `COMMENT_TRANSLATE_GOOGLE_API_KEY` environment variable. Falls back to DeepL if unset                                                                   |
+| `deepl_api_key`   | none       | [DeepL API key](https://www.deepl.com/pro-api). Free keys ending in `:fx` use the Free API. Can also be set with the `DEEPL_API_KEY` environment variable. Falls back to Google if unset                         |
 | `target_language` | `"ja"`     | Language to translate into                                                                                                                                                                                        |
 | `source_language` | `"auto"`   | Language to translate from                                                                                                                                                                                        |
 | `timeout_ms`      | `1500`     | How long to wait for a translation. On timeout the hover says so; the translation is cached and shown on the next hover                                                                                           |
@@ -98,10 +101,27 @@ All settings are optional:
 
 Run `editor: restart language server` after changing the settings.
 
+### API keys
+
+Set one of the two keys; with both, `provider` picks which one is used.
+
+**Google Cloud Translation** (500,000 characters a month free, then paid):
+
+1. Create a project in the [Google Cloud console](https://console.cloud.google.com/)
+   and link a billing account to it. This is required even within the free
+   tier.
+2. Enable the [Cloud Translation API](https://console.cloud.google.com/apis/library/translate.googleapis.com).
+3. In **APIs & Services → Credentials**, select **Create credentials → API
+   key**, and restrict the key to the Cloud Translation API.
+
+**DeepL**: sign up for the [DeepL API](https://www.deepl.com/pro-api) (the
+Free plan allows 500,000 characters a month) and copy the key from your
+account page.
+
 > [!IMPORTANT]
-> Treat your DeepL API key like a password. Do not commit it to any
-> repository. The key is passed to the server through an environment variable,
-> so it does not appear in process listings.
+> Treat your API keys like passwords: a leaked Google key can incur charges.
+> Do not commit them to any repository. The keys are passed to the server
+> through environment variables, so they do not appear in process listings.
 
 ### Cache
 
@@ -124,11 +144,6 @@ directory. Delete the files to clear the cache.
 > (Google or DeepL). No other code is sent, and comments already in the cache
 > are not sent again. Do not use this extension on code whose comments must
 > not leave your machine.
-
-The Google provider uses the free endpoint behind Google Translate's web page
-(`translate.googleapis.com`), not the official Cloud Translation API. It needs
-no API key, but it may be rate-limited or stop working without notice. For
-reliable use, use DeepL.
 
 ## Development
 

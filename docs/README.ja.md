@@ -18,7 +18,7 @@
 - Rust・Python・JavaScript/TypeScript・Go・C/C++・Java・Ruby・Lua・Haskell・HTML など多くの言語に対応 ([extension.toml](../extension.toml) の `languages` を参照)。
 - 連続する行コメントはまとめて翻訳し、文字列をコメントと誤認しない。
 - コメント中のコードブロックとインラインコードはそのまま残す。
-- Google 翻訳 (API キー不要) と DeepL (Free / Pro キー) に対応。
+- Google Cloud Translation API と DeepL (Free / Pro キー) に対応。
 - 翻訳結果を原文をキーにしてファイルにキャッシュする。キャッシュ済みの翻訳はすぐに表示され、オフライン時や再起動後にも使える。
 - 翻訳できないとき (オフライン・失敗・翻訳中) は理由を表示する。
 - 原文と言語を入力済みの翻訳サービスのページへリンクする。
@@ -44,7 +44,7 @@ Zed 拡張 (WASM) が `comment-translate-server` (ネイティブ) を用意し�
 > [!NOTE]
 > 公開されるまでは、ソースからインストールする。[開発](#開発) を参照。
 
-ほかの設定は不要で、対応するすべての言語でコメントが翻訳される。
+あとは Google か DeepL の API キーを設定する ([API キー](#api-キー) を参照)。これで対応するすべての言語でコメントが翻訳される。キーが無いと、ホバーにキーが必要な旨が表示される。
 
 言語サーバーは `lsp.comment-translate.binary.path` → シェルの `PATH` → GitHub Releases からの自動ダウンロードの順に探す。
 
@@ -58,6 +58,7 @@ Zed 拡張 (WASM) が `comment-translate-server` (ネイティブ) を用意し�
     "comment-translate": {
       "settings": {
         "provider": "google",
+        "google_api_key": "",
         "deepl_api_key": "",
         "target_language": "ja",
         "source_language": "auto",
@@ -72,7 +73,8 @@ Zed 拡張 (WASM) が `comment-translate-server` (ネイティブ) を用意し�
 | キー              | 既定値     | 説明                                                                                                                                                                                             |
 | ----------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `provider`        | `"google"` | `"google"` または `"deepl"`                                                                                                                                                                      |
-| `deepl_api_key`   | なし       | [ DeepL の API キー](https://www.deepl.com/ja/pro?cta=header-pro-api%2F#api)。`:fx` で終わる Free キーは Free 用の API を使う。環境変数 `DEEPL_API_KEY` でも指定できる。未設定なら Google を使う |
+| `google_api_key`  | なし       | Google Cloud Translation API のキー。環境変数 `COMMENT_TRANSLATE_GOOGLE_API_KEY` でも指定できる。未設定なら DeepL を使う                                                                        |
+| `deepl_api_key`   | なし       | [DeepL の API キー](https://www.deepl.com/ja/pro-api)。`:fx` で終わる Free キーは Free 用の API を使う。環境変数 `DEEPL_API_KEY` でも指定できる。未設定なら Google を使う                       |
 | `target_language` | `"ja"`     | 翻訳先の言語                                                                                                                                                                                     |
 | `source_language` | `"auto"`   | 翻訳元の言語                                                                                                                                                                                     |
 | `timeout_ms`      | `1500`     | 翻訳を待つ時間。超えたらその旨を表示し、訳文はキャッシュして次回のホバーで表示する                                                                                                               |
@@ -80,8 +82,20 @@ Zed 拡張 (WASM) が `comment-translate-server` (ネイティブ) を用意し�
 
 設定を変えたら `editor: restart language server` で反映する。
 
+### API キー
+
+どちらか一方のキーを設定する。両方あるときは `provider` で選んだ方を使う。
+
+**Google Cloud Translation** (月 50 万文字まで無料、超えると有料):
+
+1. [Google Cloud コンソール](https://console.cloud.google.com/) でプロジェクトを作り、請求先アカウントを紐付ける。無料枠の範囲内でも必要。
+2. [Cloud Translation API](https://console.cloud.google.com/apis/library/translate.googleapis.com) を有効にする。
+3. **API とサービス → 認証情報** で **認証情報を作成 → API キー** を選び、キーを Cloud Translation API だけに制限する。
+
+**DeepL**: [DeepL API](https://www.deepl.com/ja/pro-api) に登録し (Free プランは月 50 万文字まで)、アカウントページからキーをコピーする。
+
 > [!IMPORTANT]
-> DeepL の API キーはパスワードと同じように扱い、リポジトリにコミットしないこと。キーは環境変数で言語サーバーに渡すので、プロセス一覧には表示されない。
+> API キーはパスワードと同じように扱うこと。Google のキーが漏れると課金される可能性がある。リポジトリにはコミットしないこと。キーは環境変数で言語サーバーに渡すので、プロセス一覧には表示されない。
 
 ### キャッシュ
 
@@ -99,8 +113,6 @@ Zed 拡張 (WASM) が `comment-translate-server` (ネイティブ) を用意し�
 
 > [!WARNING]
 > ホバーしたコメントは、選んだ翻訳サービス (Google または DeepL) に送信される。それ以外のコードは送信されず、キャッシュ済みのコメントも再送信されない。コメントを外部に送ってはいけないコードでは使わないこと。
-
-Google は公式の Cloud Translation API ではなく、Google 翻訳の Web ページが使う無料のエンドポイント (`translate.googleapis.com`) を使う。API キーは不要だが、予告なくレート制限を受けたり使えなくなったりする可能性がある。安定して使いたい場合は DeepL を使う。
 
 ## 開発
 
