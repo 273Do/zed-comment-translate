@@ -9,10 +9,8 @@ Hover over a comment in [Zed](https://zed.dev/) to read it in your own
 language, translated with [Google Translate](https://translate.google.com/) or
 [DeepL](https://www.deepl.com/). Works the same way in 60+ languages.
 
-```text
-Open in Google Translate ↗   ← the translation page, prefilled with the original
-Translated comment            (code blocks and inline code left as is)
-```
+<img src="./docs/imgs/tr-google.png">
+<img src="./docs/imgs/tr-deepl.png">
 
 ## Features
 

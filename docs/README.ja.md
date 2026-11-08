@@ -9,10 +9,8 @@
 [Google 翻訳](https://translate.google.com/) または [DeepL](https://www.deepl.com/)
 で翻訳して表示する拡張機能。60 以上の言語で同じように使える。
 
-```text
-Open in Google Translate ↗   ← 翻訳サービスのページ (原文を入力済み)
-翻訳したコメント               (コードブロックとインラインコードはそのまま)
-```
+<img src="./imgs/tr-google.png">
+<img src="./imgs/tr-deepl.png">
 
 ## 機能
 
