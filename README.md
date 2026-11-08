@@ -40,11 +40,11 @@ hover over the comments there.
 ## How it works
 
 ```text
-Zed ──stdio──▶ comment-translate-proxy   (alongside rust-analyzer, pyright, ...)
+Zed ──stdio──▶ comment-translate-server   (alongside rust-analyzer, pyright, ...)
                  └ answers hovers over comments
 ```
 
-The Zed extension (WASM) prepares `comment-translate-proxy` (native) and
+The Zed extension (WASM) prepares `comment-translate-server` (native) and
 starts it as a language server of its own, alongside each language's usual
 server. It keeps track of open files, and answers hovers only: when the cursor
 is on a comment, with its translation. Zed shows it together with the other
@@ -116,6 +116,26 @@ Translations are stored per provider and language pair (e.g.
 
 Set the `COMMENT_TRANSLATE_CACHE_DIR` environment variable to use another
 directory. Delete the files to clear the cache.
+
+## Privacy
+
+> [!WARNING]
+> The comments you hover over are sent to the selected translation service
+> (Google or DeepL). No other code is sent, and comments already in the cache
+> are not sent again. Do not use this extension on code whose comments must
+> not leave your machine.
+
+The Google provider uses the free endpoint behind Google Translate's web page
+(`translate.googleapis.com`), not the official Cloud Translation API. It needs
+no API key, but it may be rate-limited or stop working without notice. For
+reliable use, use DeepL.
+
+## Development
+
+Requires [Rust](https://rustup.rs/).
+
+1. Install the language server: `cargo install --path server`
+2. In Zed, run `zed: install dev extension` and select this repository.
 
 Contributions and bug reports are welcome.
 

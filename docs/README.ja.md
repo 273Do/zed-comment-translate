@@ -1,7 +1,7 @@
 # Comment Translate for Zed
 
 [![GitHub release](https://img.shields.io/github/v/release/273Do/zed-comment-translator)](https://github.com/273Do/zed-comment-translator/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 
 [English](../README.md) | 日本語
 
@@ -15,7 +15,7 @@
 ## 機能
 
 - カーソル下のコメントを翻訳する。行コメント (`//`・`#`・`--` など)、ブロックコメント (`/* */`・`<!-- -->` など)、ドキュメントコメント (`///`・`/** */` など) に対応。
-- Rust・Python・JavaScript/TypeScript・Go・C/C++・Java・Ruby・Lua・Haskell・HTML など多くの言語に対応 ([extension.toml](./extension.toml) の `languages` を参照)。
+- Rust・Python・JavaScript/TypeScript・Go・C/C++・Java・Ruby・Lua・Haskell・HTML など多くの言語に対応 ([extension.toml](../extension.toml) の `languages` を参照)。
 - 連続する行コメントはまとめて翻訳し、文字列をコメントと誤認しない。
 - コメント中のコードブロックとインラインコードはそのまま残す。
 - Google 翻訳 (API キー不要) と DeepL (Free / Pro キー) に対応。
@@ -29,11 +29,11 @@
 ## 仕組み
 
 ```text
-Zed ──stdio──▶ comment-translate-proxy   (rust-analyzer や pyright などと並べて動く)
+Zed ──stdio──▶ comment-translate-server   (rust-analyzer や pyright などと並べて動く)
                  └ コメントへのホバーに答える
 ```
 
-Zed 拡張 (WASM) が `comment-translate-proxy` (ネイティブ) を用意し、各言語の通常のサーバーと並べて、単独の言語サーバーとして起動する。開いているファイルの内容を追跡し、ホバーにだけ答える。カーソルがコメント上にあれば、その翻訳を返す。Zed はこれを他のサーバーのホバーとまとめて表示する。他のサーバーのホバーには手を加えない。
+Zed 拡張 (WASM) が `comment-translate-server` (ネイティブ) を用意し、各言語の通常のサーバーと並べて、単独の言語サーバーとして起動する。開いているファイルの内容を追跡し、ホバーにだけ答える。カーソルがコメント上にあれば、その翻訳を返す。Zed はこれを他のサーバーのホバーとまとめて表示する。他のサーバーのホバーには手を加えない。
 
 ## インストール
 
@@ -95,8 +95,22 @@ Zed 拡張 (WASM) が `comment-translate-proxy` (ネイティブ) を用意し�
 
 環境変数 `COMMENT_TRANSLATE_CACHE_DIR` で保存先を変更できる。ファイルを消すとキャッシュがクリアされる。
 
+## プライバシー
+
+> [!WARNING]
+> ホバーしたコメントは、選んだ翻訳サービス (Google または DeepL) に送信される。それ以外のコードは送信されず、キャッシュ済みのコメントも再送信されない。コメントを外部に送ってはいけないコードでは使わないこと。
+
+Google は公式の Cloud Translation API ではなく、Google 翻訳の Web ページが使う無料のエンドポイント (`translate.googleapis.com`) を使う。API キーは不要だが、予告なくレート制限を受けたり使えなくなったりする可能性がある。安定して使いたい場合は DeepL を使う。
+
+## 開発
+
+[Rust](https://rustup.rs/) が必要。
+
+1. 言語サーバーをインストールする: `cargo install --path server`
+2. Zed で `zed: install dev extension` を実行し、このリポジトリを選ぶ。
+
 コントリビューションやバグ報告を歓迎しています。
 
 ## ライセンス
 
-[MIT License](./LICENSE) で公開している。
+[MIT License](../LICENSE) で公開している。
