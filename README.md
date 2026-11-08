@@ -25,6 +25,8 @@ Original                      ← hidden with show_original: false
 
 - Translates hover documentation while keeping signatures, code blocks and
   inline code as is.
+- Translates comments in the editor (`//`, `///`, `/* */`) when you hover
+  over them; consecutive line comments are translated together.
 - Supports Google Translate (no API key needed) and DeepL (Free and Pro keys).
 - Caches translations on disk, keyed by the source text: documentation that
   appears in many places, such as `String`'s, is requested only once, and
