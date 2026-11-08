@@ -29,6 +29,7 @@ pub fn proxy_args(settings: Option<&Value>) -> Vec<String> {
         ("source_language", "--from"),
         ("show_original", "--show-original"),
         ("timeout_ms", "--timeout-ms"),
+        ("persist_cache", "--persist-cache"),
     ];
     options
         .into_iter()
@@ -69,6 +70,7 @@ mod tests {
             "target_language": "en",
             "show_original": false,
             "timeout_ms": 800,
+            "persist_cache": false,
             "deepl_api_key": "secret",
             "unrelated": 1,
         });
@@ -82,7 +84,9 @@ mod tests {
                 "--show-original",
                 "false",
                 "--timeout-ms",
-                "800"
+                "800",
+                "--persist-cache",
+                "false"
             ]
         );
         assert_eq!(

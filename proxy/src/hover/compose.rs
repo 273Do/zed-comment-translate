@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use super::markdown::{split_marker, Block};
-use crate::translate::ProviderKind;
+use crate::translate::{ProviderKind, Unavailable};
 
 /// Heading above the original documentation.
 pub const ORIGINAL_LABEL: &str = "Original";
@@ -13,6 +13,15 @@ pub fn open_in_label(provider: ProviderKind) -> &'static str {
     match provider {
         ProviderKind::Google => "Open in Google Translate",
         ProviderKind::Deepl => "Open in DeepL",
+    }
+}
+
+/// Shown above the original documentation when there is no translation.
+pub fn unavailable_notice(reason: Unavailable) -> &'static str {
+    match reason {
+        Unavailable::Offline => "Offline: showing the original",
+        Unavailable::Failed => "Translation failed: showing the original",
+        Unavailable::Pending => "Still translating: hover again to see the translation",
     }
 }
 

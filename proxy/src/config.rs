@@ -13,6 +13,7 @@ pub struct Config {
     pub to: String,
     pub timeout: Duration,
     pub show_original: bool,
+    pub persist_cache: bool,
     pub server: String,
     pub server_args: Vec<String>,
 }
@@ -26,6 +27,7 @@ impl Config {
         let mut to = env_or("COMMENT_TRANSLATE_TO", "ja".to_string());
         let mut timeout_ms = env_or("COMMENT_TRANSLATE_TIMEOUT_MS", 1500u64);
         let mut show_original = env_or("COMMENT_TRANSLATE_SHOW_ORIGINAL", true);
+        let mut persist_cache = env_or("COMMENT_TRANSLATE_PERSIST_CACHE", true);
         // Passed through the environment only, so that it does not show up in `ps`.
         let deepl_api_key = ["COMMENT_TRANSLATE_DEEPL_API_KEY", "DEEPL_API_KEY"]
             .into_iter()
@@ -40,6 +42,7 @@ impl Config {
                 "--to" => to = value()?,
                 "--timeout-ms" => timeout_ms = parse(&arg, &value()?)?,
                 "--show-original" => show_original = parse(&arg, &value()?)?,
+                "--persist-cache" => persist_cache = parse(&arg, &value()?)?,
                 "--" => break,
                 other => bail!("unknown argument: {other}"),
             }
@@ -55,6 +58,7 @@ impl Config {
             to,
             timeout: Duration::from_millis(timeout_ms),
             show_original,
+            persist_cache,
             server,
             server_args: args.collect(),
         })

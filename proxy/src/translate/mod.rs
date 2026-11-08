@@ -1,17 +1,21 @@
-//! Translation with an in-memory cache, in front of a [`Provider`].
+//! Translation with a persistent cache, in front of a [`Provider`].
 
+mod cache;
 mod deepl;
 mod google;
 mod placeholder;
 
 use std::{
-    collections::HashMap,
+    path::PathBuf,
     str::FromStr,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use anyhow::{bail, Result};
+
+use cache::Cache;
+pub use cache::{clear as clear_cache, default_dir as default_cache_dir};
 
 /// Page text beyond this many characters is cut from "open in ..." links.
 const MAX_PAGE_TEXT_CHARS: usize = 1000;
@@ -32,6 +36,17 @@ impl FromStr for ProviderKind {
             other => bail!("unknown provider: {other} (expected google or deepl)"),
         }
     }
+}
+
+/// Why [`Translator::translate_all`] has no translation to show.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Unavailable {
+    /// The provider could not be reached.
+    Offline,
+    /// The provider returned an error or an unexpected response.
+    Failed,
+    /// Still in flight after the timeout; the next hover shows the result.
+    Pending,
 }
 
 /// A translated text and, when the provider reports it, its detected source language.
@@ -114,22 +129,33 @@ struct Inner {
     provider: Provider,
     from: String,
     to: String,
-    /// `None` means the text is already in the target language.
-    cache: Mutex<HashMap<String, Option<String>>>,
+    cache: Mutex<Cache>,
 }
 
 impl Translator {
-    pub fn new(provider: Provider, from: String, to: String, timeout: Duration) -> Result<Self> {
+    /// Translations are cached in `cache_dir`, separately per provider and
+    /// language pair; without it they are only kept in memory.
+    pub fn new(
+        provider: Provider,
+        from: String,
+        to: String,
+        timeout: Duration,
+        cache_dir: Option<PathBuf>,
+    ) -> Result<Self> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()?;
+        let cache = Cache::open(
+            cache_dir,
+            &format!("{}-{from}-{to}", provider.name()).to_lowercase(),
+        );
         Ok(Self {
             inner: Arc::new(Inner {
                 client,
                 provider,
                 from,
                 to,
-                cache: Mutex::default(),
+                cache: Mutex::new(cache),
             }),
             timeout,
         })
@@ -145,16 +171,18 @@ impl Translator {
         inner.provider.page_url(&inner.from, &inner.to, text)
     }
 
-    /// Translates every text in one request. Each element is `None` when that text
-    /// is already in the target language. Returns `None` if the request failed or
-    /// is still in flight after the timeout; a late result is still cached, so the
-    /// next hover over the same item shows it.
-    pub async fn translate_all(&self, texts: &[String]) -> Option<Vec<Option<String>>> {
+    /// Translates the texts not in the cache in one request. Each element is
+    /// `None` when that text is already in the target language. A result that
+    /// arrives after the timeout is still cached, so the next hover shows it.
+    pub async fn translate_all(
+        &self,
+        texts: &[String],
+    ) -> Result<Vec<Option<String>>, Unavailable> {
         let mut missing: Vec<String> = {
             let cache = self.inner.cache.lock().unwrap();
             texts
                 .iter()
-                .filter(|text| !cache.contains_key(*text))
+                .filter(|text| !cache.contains(text))
                 .cloned()
                 .collect()
         };
@@ -168,26 +196,33 @@ impl Translator {
                     Ok(translations) => {
                         let mut cache = inner.cache.lock().unwrap();
                         cache.extend(missing.into_iter().zip(translations));
-                        true
+                        Ok(())
                     }
                     Err(error) => {
                         log!("translation failed: {error:#}");
-                        false
+                        Err(if is_offline(&error) {
+                            Unavailable::Offline
+                        } else {
+                            Unavailable::Failed
+                        })
                     }
                 }
             });
             match tokio::time::timeout(self.timeout, task).await {
-                Ok(Ok(true)) => {}
-                Ok(_) => return None,
+                Ok(Ok(result)) => result?,
+                Ok(Err(_)) => return Err(Unavailable::Failed),
                 Err(_) => {
                     log!("translation timed out; it will appear on the next hover");
-                    return None;
+                    return Err(Unavailable::Pending);
                 }
             }
         }
 
         let cache = self.inner.cache.lock().unwrap();
-        texts.iter().map(|text| cache.get(text).cloned()).collect()
+        texts
+            .iter()
+            .map(|text| cache.get(text).cloned().ok_or(Unavailable::Failed))
+            .collect()
     }
 }
 
@@ -213,6 +248,15 @@ impl Inner {
             })
             .collect())
     }
+}
+
+/// Whether the request never reached the provider (no network, DNS failure, ...).
+fn is_offline(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause
+            .downcast_ref::<reqwest::Error>()
+            .is_some_and(|error| error.is_connect() || error.is_timeout())
+    })
 }
 
 /// Whether a detected language ("EN", "ja", "zh-CN") matches the target

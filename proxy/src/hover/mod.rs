@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use serde_json::{json, Value};
 
 use crate::translate::Translator;
-use compose::{compose, open_in_label, provider_link, ORIGINAL_LABEL};
+use compose::{compose, open_in_label, provider_link, unavailable_notice, ORIGINAL_LABEL};
 use markdown::{hover_markdown, parse_blocks, Block};
 
 /// Documentation beyond this many characters is left untranslated.
@@ -29,8 +29,8 @@ impl HoverTranslator {
     }
 
     /// Rewrites a hover response in place. Documentation already in the target
-    /// language is left alone; if the translation fails or times out, the
-    /// original is shown with only the provider link added.
+    /// language is left alone; if the translation is unavailable (offline,
+    /// failed or timed out), the original is shown with the reason.
     pub async fn augment(&self, mut message: Value) -> Value {
         let Some(contents) = message.pointer_mut("/result/contents") else {
             return message;
@@ -55,7 +55,7 @@ impl HoverTranslator {
         let link = provider_link(open_in_label(self.translator.provider().kind()), &url);
 
         let value = match self.translator.translate_all(&texts).await {
-            Some(translations) => {
+            Ok(translations) => {
                 let translations: HashMap<&str, &str> = texts
                     .iter()
                     .zip(&translations)
@@ -70,7 +70,7 @@ impl HoverTranslator {
                 let original_label = self.show_original.then_some(ORIGINAL_LABEL);
                 compose(&blocks, &translations, Some(&link), original_label)
             }
-            None => format!("{link}\n\n{markdown}"),
+            Err(reason) => format!("{link}\n\n*{}*\n\n{markdown}", unavailable_notice(reason)),
         };
         *contents = json!({ "kind": "markdown", "value": value });
         message

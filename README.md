@@ -26,7 +26,7 @@ Zed ──stdio──▶ comment-translate-proxy ──stdio──▶ rust-analy
 - `proxy/` … the LSP proxy (native). Handles relaying, translation and caching.
   - `lsp/` … reading, writing and relaying messages; locating the wrapped server
   - `hover/` … parsing (`markdown.rs`) and composing (`compose.rs`) hover Markdown
-  - `translate/` … caching and timeouts (`mod.rs`), providers (`google.rs` / `deepl.rs`), protecting code fragments (`placeholder.rs`)
+  - `translate/` … timeouts (`mod.rs`), the persistent cache (`cache.rs`), providers (`google.rs` / `deepl.rs`), protecting code fragments (`placeholder.rs`)
   - `config.rs` … arguments and environment variables
 
 The proxy is looked up in this order: `lsp.comment-translate-rust.binary.path` → PATH → automatic download from GitHub Releases.
@@ -60,7 +60,8 @@ rust-analyzer itself is looked up in this order: `lsp.rust-analyzer.binary.path`
         "target_language": "ja",
         "source_language": "auto",
         "show_original": true,
-        "timeout_ms": 1500
+        "timeout_ms": 1500,
+        "persist_cache": true
       }
     }
   }
@@ -75,8 +76,17 @@ rust-analyzer itself is looked up in this order: `lsp.rust-analyzer.binary.path`
 | `source_language` | `"auto"` | Language to translate from |
 | `show_original` | `true` | Show the original text below the translation |
 | `timeout_ms` | `1500` | How long to wait for a translation. On timeout only the original is shown; the translation is cached and shown on the next hover |
+| `persist_cache` | `true` | Keep the translation cache in a file. With `false` it is kept in memory only and is gone when Zed exits (leftover cache files are deleted on startup) |
 
 Run `editor: restart language server` after changing settings.
+
+### Cache
+
+Translations are saved to a file keyed by the source text (with `persist_cache: true`) and reused after a restart and while offline. Documentation that shows up in many places, such as `String`'s, is requested only once.
+
+- Location: `~/Library/Caches/comment-translate/` on macOS, `$XDG_CACHE_HOME/comment-translate/` (or `~/.cache/comment-translate/`) on Linux, `%LOCALAPPDATA%\comment-translate\` on Windows. Override with the `COMMENT_TRANSLATE_CACHE_DIR` environment variable
+- There is one file per provider and language pair (e.g. `google-auto-ja.jsonl`). Delete it to clear the cache
+- When a translation is not cached and cannot be fetched, the original is shown with the reason at the top of the hover: `Offline` (could not connect), `Translation failed` (an error), or `Still translating` (exceeded `timeout_ms`; the next hover shows it)
 
 Logs are available via `dev: open language server logs` → `comment-translate-rust`.
 

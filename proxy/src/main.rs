@@ -2,12 +2,14 @@
 //! `textDocument/hover` responses.
 //!
 //! Usage: comment-translate-proxy [--provider google|deepl] [--to ja] [--from auto]
-//!        [--timeout-ms 1500] [--show-original true] -- <server> [args...]
+//!        [--timeout-ms 1500] [--show-original true] [--persist-cache true]
+//!        -- <server> [args...]
 //!
 //! Layers, from the outside in:
 //! - `lsp`: framing and relaying messages between Zed and the wrapped server
 //! - `hover`: rewriting hover markdown (parsing, composing the new popup)
-//! - `translate`: caching and timeouts in front of a translation provider
+//! - `translate`: caching (in memory and on disk) and timeouts in front of a
+//!   translation provider
 
 mod config;
 mod hover;
@@ -23,7 +25,7 @@ use tokio::process::Command;
 
 use config::Config;
 use hover::HoverTranslator;
-use translate::{Provider, Translator};
+use translate::{clear_cache, default_cache_dir, Provider, Translator};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -39,7 +41,18 @@ async fn main() -> Result<()> {
         config.to,
         provider.name()
     );
-    let translator = Translator::new(provider, config.from, config.to, config.timeout)?;
+    // Without persistence, translations last until exit and leftover files are removed.
+    let cache_dir = default_cache_dir();
+    if let (false, Some(dir)) = (config.persist_cache, &cache_dir) {
+        clear_cache(dir);
+    }
+    let translator = Translator::new(
+        provider,
+        config.from,
+        config.to,
+        config.timeout,
+        cache_dir.filter(|_| config.persist_cache),
+    )?;
     let hover = Arc::new(HoverTranslator::new(translator, config.show_original));
 
     let child = Command::new(&server)
