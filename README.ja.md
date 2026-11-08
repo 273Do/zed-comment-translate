@@ -46,17 +46,7 @@ Zed 拡張 (WASM) が `comment-translate-proxy` (ネイティブ) を用意し�
 > [!NOTE]
 > 公開されるまでは、ソースからインストールする。[開発](#開発) を参照。
 
-ほかの設定は不要。対応するすべての言語で有効になる。ある言語の `language_servers` を指定している場合は、`"..."` を残す (または `"comment-translate"` を加える)。特定の言語で無効にするには:
-
-```jsonc
-{
-  "languages": {
-    "Markdown": {
-      "language_servers": ["!comment-translate", "..."]
-    }
-  }
-}
-```
+ほかの設定は不要で、対応するすべての言語でコメントが翻訳される。
 
 言語サーバーは `lsp.comment-translate.binary.path` → シェルの `PATH` → GitHub Releases からの自動ダウンロードの順に探す。
 

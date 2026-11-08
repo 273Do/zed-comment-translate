@@ -62,19 +62,8 @@ servers' hovers, which are left untouched.
 > Until the extension is published, install it from source instead: see
 > [Development](#development).
 
-No other setup is needed. The server is enabled for every supported language;
-if you set `language_servers` for a language, keep `"..."` in the list (or
-add `"comment-translate"`). To turn it off for a language:
-
-```jsonc
-{
-  "languages": {
-    "Markdown": {
-      "language_servers": ["!comment-translate", "..."],
-    },
-  },
-}
-```
+No other setup is needed: comments are translated in every supported
+language.
 
 The server is looked up in this order: `lsp.comment-translate.binary.path`,
 your shell `PATH`, then an automatic download from GitHub Releases.
