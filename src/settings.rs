@@ -1,9 +1,9 @@
-//! Turning `lsp.comment-translate` settings into the proxy command.
+//! Turning `lsp.comment-translate` settings into the server command.
 
 use zed_extension_api::serde_json::Value;
 
-/// Converts `lsp.<id>.settings` into proxy arguments.
-pub fn proxy_args(settings: Option<&Value>) -> Vec<String> {
+/// Converts `lsp.<id>.settings` into server arguments.
+pub fn server_args(settings: Option<&Value>) -> Vec<String> {
     let Some(settings) = settings else {
         return Vec::new();
     };
@@ -23,7 +23,7 @@ pub fn proxy_args(settings: Option<&Value>) -> Vec<String> {
 
 /// Settings passed through the environment rather than arguments, so that
 /// secrets do not show up in process listings.
-pub fn proxy_env(settings: Option<&Value>) -> Vec<(String, String)> {
+pub fn server_env(settings: Option<&Value>) -> Vec<(String, String)> {
     let Some(settings) = settings else {
         return Vec::new();
     };
@@ -57,7 +57,7 @@ mod tests {
             "unrelated": 1,
         });
         assert_eq!(
-            proxy_args(Some(&settings)),
+            server_args(Some(&settings)),
             [
                 "--provider",
                 "deepl",
@@ -70,7 +70,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            proxy_env(Some(&settings)),
+            server_env(Some(&settings)),
             [(
                 "COMMENT_TRANSLATE_DEEPL_API_KEY".to_string(),
                 "secret".to_string()

@@ -1,5 +1,5 @@
 [workspace]
-members = ["proxy"]
+members = ["server"]
 
 [package]
 name = "comment-translate"

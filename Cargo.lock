@@ -103,7 +103,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "comment-translate-proxy"
+name = "comment-translate-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",

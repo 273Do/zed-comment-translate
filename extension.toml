@@ -17,7 +17,7 @@ languages = [
   "Go",
   "C",
   "C++",
-  "C#",
+  "CSharp",
   "Java",
   "Kotlin",
   "Swift",
@@ -37,11 +37,11 @@ languages = [
   "Haskell",
   "Elm",
   "OCaml",
-  "F#",
+  "FSharp",
   "Clojure",
   "Scheme",
   "Racket",
-  "Emacs Lisp",
+  "Elisp",
   "Erlang",
   "Julia",
   "Nim",
@@ -50,7 +50,7 @@ languages = [
   "SQL",
   "CSS",
   "SCSS",
-  "Less",
+  "LESS",
   "HTML",
   "XML",
   "Vue.js",
@@ -60,7 +60,7 @@ languages = [
   "TOML",
   "JSONC",
   "Dockerfile",
-  "Makefile",
+  "Make",
   "CMake",
   "Nix",
   "Terraform",
@@ -68,7 +68,7 @@ languages = [
   "Proto",
   "GLSL",
   "HLSL",
-  "WGSL",
+  "Wgsl",
   "Solidity",
   "Groovy",
   "LaTeX",
@@ -83,7 +83,7 @@ languages = [
 "Go" = "go"
 "C" = "c"
 "C++" = "cpp"
-"C#" = "csharp"
+"CSharp" = "csharp"
 "Java" = "java"
 "Kotlin" = "kotlin"
 "Swift" = "swift"
@@ -103,11 +103,11 @@ languages = [
 "Haskell" = "haskell"
 "Elm" = "elm"
 "OCaml" = "ocaml"
-"F#" = "fsharp"
+"FSharp" = "fsharp"
 "Clojure" = "clojure"
 "Scheme" = "scheme"
 "Racket" = "racket"
-"Emacs Lisp" = "elisp"
+"Elisp" = "elisp"
 "Erlang" = "erlang"
 "Julia" = "julia"
 "Nim" = "nim"
@@ -116,7 +116,7 @@ languages = [
 "SQL" = "sql"
 "CSS" = "css"
 "SCSS" = "scss"
-"Less" = "less"
+"LESS" = "less"
 "HTML" = "html"
 "XML" = "xml"
 "Vue.js" = "vue"
@@ -126,7 +126,7 @@ languages = [
 "TOML" = "toml"
 "JSONC" = "jsonc"
 "Dockerfile" = "dockerfile"
-"Makefile" = "makefile"
+"Make" = "makefile"
 "CMake" = "cmake"
 "Nix" = "nix"
 "Terraform" = "terraform"
@@ -134,7 +134,7 @@ languages = [
 "Proto" = "proto"
 "GLSL" = "glsl"
 "HLSL" = "hlsl"
-"WGSL" = "wgsl"
+"Wgsl" = "wgsl"
 "Solidity" = "solidity"
 "Groovy" = "groovy"
 "LaTeX" = "latex"
