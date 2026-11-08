@@ -8,7 +8,7 @@ use zed_extension_api::{
 
 const PROXY_BINARY: &str = "comment-translate-proxy";
 /// The repository whose GitHub releases provide prebuilt proxy binaries.
-const GITHUB_REPO: &str = "your-name/zed-comment-translate";
+const GITHUB_REPO: &str = "273Do/zed-comment-translator";
 
 #[derive(Default)]
 pub struct ProxyBinary {
