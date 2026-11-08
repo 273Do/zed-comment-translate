@@ -1,41 +1,66 @@
-# comment-translate (Zed)
+# Comment Translate for Zed
 
-English | [日本語](README.ja.md)
+[![GitHub release](https://img.shields.io/github/v/release/273Do/zed-comment-translator)](https://github.com/273Do/zed-comment-translator/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-A Zed extension that shows translated documentation (Google Translate / DeepL) in hover popups.
+English | [日本語](./README.ja.md)
 
-```
-Open in Google Translate ↗   ← link to the translation service, prefilled with the original text
+Read documentation in your own language in [Zed](https://zed.dev/)'s hover
+popups, translated with [Google Translate](https://translate.google.com/) or
+[DeepL](https://www.deepl.com/).
+
+The extension sits between Zed and rust-analyzer, translates the
+documentation in hover responses, and leaves everything else untouched.
+
+```text
+Open in Google Translate ↗   ← the translation page, prefilled with the original
 Signature
 ---
-Translated documentation (code examples left as is)
+Translated documentation      (code examples left as is)
 ---
-Original                     ← the original text; hidden with show_original: false
+Original                      ← hidden with show_original: false
 ```
+
+## Features
+
+- Translates hover documentation while keeping signatures, code blocks and
+  inline code as is.
+- Supports Google Translate (no API key needed) and DeepL (Free and Pro keys).
+- Caches translations on disk, keyed by the source text: documentation that
+  appears in many places, such as `String`'s, is requested only once, and
+  cached translations work offline and after a restart.
+- Shows the original with the reason when a translation is unavailable
+  (offline, failed, or still in progress).
+- Links to the translation service's page with the text and languages filled
+  in, when the translation succeeds.
+- Keeps your existing `lsp.rust-analyzer` configuration working.
+- Downloads the proxy automatically, with prebuilt binaries for macOS, Linux
+  and Windows.
 
 ## How it works
 
-```
+```text
 Zed ──stdio──▶ comment-translate-proxy ──stdio──▶ rust-analyzer
                  └ rewrites only textDocument/hover responses
 ```
 
-- `extension.toml` / `src/` … the Zed extension (WASM). Prepares the proxy and returns the command that starts it.
-  - `settings.rs` … turns `lsp.*` settings into proxy arguments and environment variables
-  - `proxy_binary.rs` … finding and downloading the proxy
-- `proxy/` … the LSP proxy (native). Handles relaying, translation and caching.
-  - `lsp/` … reading, writing and relaying messages; locating the wrapped server
-  - `hover/` … parsing (`markdown.rs`) and composing (`compose.rs`) hover Markdown
-  - `translate/` … timeouts (`mod.rs`), the persistent cache (`cache.rs`), providers (`google.rs` / `deepl.rs`), protecting code fragments (`placeholder.rs`)
-  - `config.rs` … arguments and environment variables
+The Zed extension (WASM) prepares `comment-translate-proxy` and starts it in
+place of rust-analyzer. The proxy (native) relays every message between Zed and
+rust-analyzer, and translates the documentation in hover responses.
 
-The proxy is looked up in this order: `lsp.comment-translate-rust.binary.path` → PATH → automatic download from GitHub Releases.
+## Installation
 
-## Usage
+1. Open Zed's **Extensions** view.
+2. Search for **Comment Translate**.
+3. Select **Install**.
 
-Replace rust-analyzer with the proxy in `settings.json`.
+> [!NOTE]
+> Until the extension is published, install it from source instead: see
+> [Development](#development).
 
-```json
+Then replace rust-analyzer with the proxy in your Zed settings:
+
+```jsonc
 {
   "languages": {
     "Rust": {
@@ -45,12 +70,17 @@ Replace rust-analyzer with the proxy in `settings.json`.
 }
 ```
 
-`initialization_options` / `settings` / `binary` under `lsp.rust-analyzer` are carried over as is.
-rust-analyzer itself is looked up in this order: `lsp.rust-analyzer.binary.path` → the copy Zed downloaded → PATH.
+The proxy is looked up in this order: `lsp.comment-translate-rust.binary.path`,
+your shell `PATH`, then an automatic download from GitHub Releases.
+rust-analyzer itself is looked up in this order: `lsp.rust-analyzer.binary.path`,
+the copy Zed downloaded, then `PATH`. The `initialization_options`, `settings`
+and `binary` under `lsp.rust-analyzer` are carried over as is.
 
-### Settings
+## Configuration
 
-```json
+All settings are optional:
+
+```jsonc
 {
   "lsp": {
     "comment-translate-rust": {
@@ -75,35 +105,85 @@ rust-analyzer itself is looked up in this order: `lsp.rust-analyzer.binary.path`
 | `target_language` | `"ja"` | Language to translate into |
 | `source_language` | `"auto"` | Language to translate from |
 | `show_original` | `true` | Show the original text below the translation |
-| `timeout_ms` | `1500` | How long to wait for a translation. On timeout only the original is shown; the translation is cached and shown on the next hover |
+| `timeout_ms` | `1500` | How long to wait for a translation. On timeout the original is shown; the translation is cached and shown on the next hover |
 | `persist_cache` | `true` | Keep the translation cache in a file. With `false` it is kept in memory only and is gone when Zed exits (leftover cache files are deleted on startup) |
 
-Run `editor: restart language server` after changing settings.
+Run `editor: restart language server` after changing the settings.
+
+> [!IMPORTANT]
+> Treat your DeepL API key like a password. Do not commit it to any
+> repository. The key is passed to the proxy through an environment variable,
+> so it does not appear in process listings.
 
 ### Cache
 
-Translations are saved to a file keyed by the source text (with `persist_cache: true`) and reused after a restart and while offline. Documentation that shows up in many places, such as `String`'s, is requested only once.
+Translations are stored per provider and language pair (e.g.
+`google-auto-ja.jsonl`) in:
 
-- Location: `~/Library/Caches/comment-translate/` on macOS, `$XDG_CACHE_HOME/comment-translate/` (or `~/.cache/comment-translate/`) on Linux, `%LOCALAPPDATA%\comment-translate\` on Windows. Override with the `COMMENT_TRANSLATE_CACHE_DIR` environment variable
-- There is one file per provider and language pair (e.g. `google-auto-ja.jsonl`). Delete it to clear the cache
-- When a translation is not cached and cannot be fetched, the original is shown with the reason at the top of the hover: `Offline` (could not connect), `Translation failed` (an error), or `Still translating` (exceeded `timeout_ms`; the next hover shows it)
+| Platform | Location |
+|---|---|
+| macOS | `~/Library/Caches/comment-translate/` |
+| Linux | `$XDG_CACHE_HOME/comment-translate/` (or `~/.cache/comment-translate/`) |
+| Windows | `%LOCALAPPDATA%\comment-translate\` |
 
-Logs are available via `dev: open language server logs` → `comment-translate-rust`.
+Set the `COMMENT_TRANSLATE_CACHE_DIR` environment variable to use another
+directory. Delete the files to clear the cache.
+
+## Troubleshooting
+
+- **Hovers are not translated:** make sure `comment-translate-rust` is listed
+  and `!rust-analyzer` disables the built-in server in `language_servers`, then
+  restart the language server.
+- **The hover says "Offline" or "Translation failed":** check your network
+  connection, and for DeepL, your API key and quota. Cached translations are
+  still shown.
+- **The hover says "Still translating":** the translation took longer than
+  `timeout_ms`. Hover again to see it, or raise `timeout_ms`.
+- **The proxy cannot be downloaded:** check access to GitHub Releases, or build
+  it yourself with `cargo install --path proxy` so that it is on your `PATH`.
+- **Need more detail:** run `dev: open language server logs` and select
+  `comment-translate-rust`.
+
+Please [open an issue](https://github.com/273Do/zed-comment-translator/issues)
+with your OS, Zed version and the relevant logs if you run into a problem.
 
 ## Development
 
-```sh
-cargo install --path proxy   # a proxy on PATH takes precedence
+The repository is a Cargo workspace with two crates:
+
+- `comment-translate` (repository root): the Zed extension that prepares and
+  starts the proxy.
+- `comment-translate-proxy` (`proxy/`): the LSP proxy that relays messages and
+  translates hover documentation.
+
+To try local changes:
+
+```bash
+cargo install --path proxy   # a proxy on PATH takes precedence over the download
 ```
 
-In Zed, run `zed: install dev extension` and select the root of this repository.
+Then run `zed: install dev extension` in Zed and select the root of this
+repository.
 
-## Release
+Run the workspace checks before submitting a change:
 
-1. Set `GITHUB_REPO` in `src/proxy_binary.rs` and `repository` in `extension.toml` to the actual repository.
-2. Pushing a tag such as `v0.1.0` makes `.github/workflows/release.yml` build the proxy for each platform and attach it to the release.
-3. Register the extension in [zed-industries/extensions](https://github.com/zed-industries/extensions).
+```bash
+cargo fmt --all --check
+cargo clippy --workspace --all-targets
+cargo test --workspace
+```
+
+### Release
+
+1. Set `GITHUB_REPO` in `src/proxy_binary.rs` and `repository` in
+   `extension.toml` to this repository.
+2. Push a tag such as `v0.1.0`. `.github/workflows/release.yml` builds the
+   proxy for each platform and attaches it to the GitHub release.
+3. Register the extension in
+   [zed-industries/extensions](https://github.com/zed-industries/extensions).
+
+Contributions and bug reports are welcome.
 
 ## License
 
-MIT
+This project is available under the [MIT License](./LICENSE).
