@@ -1,4 +1,4 @@
-id = "comment-translate"
+id = "comment-translate-lsp"
 name = "Comment Translate"
 description = "Translates comments in hover popups (Google / DeepL), in any of 60+ languages."
 version = "0.1.0"
