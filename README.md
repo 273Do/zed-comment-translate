@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/273Do/zed-comment-translator)](https://github.com/273Do/zed-comment-translator/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-English | [日本語](./README.ja.md)
+English | [日本語](./docs/README.ja.md)
 
 Hover over a comment in [Zed](https://zed.dev/) to read it in your own
 language, translated with [Google Translate](https://translate.google.com/) or
@@ -118,60 +118,6 @@ Translations are stored per provider and language pair (e.g.
 
 Set the `COMMENT_TRANSLATE_CACHE_DIR` environment variable to use another
 directory. Delete the files to clear the cache.
-
-## Troubleshooting
-
-- **Hovers over comments are not translated:** make sure the language's
-  `language_servers` does not leave out `comment-translate` (keep `"..."` in
-  the list), and that the language is listed in `extension.toml`. Comments
-  already in the target language get no hover.
-- **The hover says "Offline" or "Translation failed":** check your network
-  connection, and for DeepL, your API key and quota. Cached translations are
-  still shown.
-- **The hover says "Still translating":** the translation took longer than
-  `timeout_ms`. Hover again to see it, or raise `timeout_ms`.
-- **The server cannot be downloaded:** check access to GitHub Releases, or build
-  it yourself with `cargo install --path proxy` so that it is on your `PATH`.
-- **Need more detail:** run `dev: open language server logs` and select
-  `comment-translate`.
-
-Please [open an issue](https://github.com/273Do/zed-comment-translator/issues)
-with your OS, Zed version and the relevant logs if you run into a problem.
-
-## Development
-
-The repository is a Cargo workspace with two crates:
-
-- `comment-translate` (repository root): the Zed extension that prepares and
-  starts the language server.
-- `comment-translate-proxy` (`proxy/`): the language server that finds the
-  comment under the cursor and translates it.
-
-To try local changes:
-
-```bash
-cargo install --path proxy   # a server on PATH takes precedence over the download
-```
-
-Then run `zed: install dev extension` in Zed and select the root of this
-repository.
-
-Run the workspace checks before submitting a change:
-
-```bash
-cargo fmt --all --check
-cargo clippy --workspace --all-targets
-cargo test --workspace
-```
-
-### Release
-
-1. Set `GITHUB_REPO` in `src/proxy_binary.rs` and `repository` in
-   `extension.toml` to this repository.
-2. Push a tag such as `v0.1.0`. `.github/workflows/release.yml` builds the
-   server for each platform and attaches it to the GitHub release.
-3. Register the extension in
-   [zed-industries/extensions](https://github.com/zed-industries/extensions).
 
 Contributions and bug reports are welcome.
 
