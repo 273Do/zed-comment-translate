@@ -89,14 +89,14 @@ All settings are optional:
 }
 ```
 
-| Key               | Default    | Description                                                                                                                                             |
-| ----------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provider`        | `"google"` | `"google"` or `"deepl"`                                                                                                                                 |
-| `deepl_api_key`   | none       | DeepL API key. Free keys ending in `:fx` use the Free API. Can also be set with the `DEEPL_API_KEY` environment variable. Falls back to Google if unset |
-| `target_language` | `"ja"`     | Language to translate into                                                                                                                              |
-| `source_language` | `"auto"`   | Language to translate from                                                                                                                              |
-| `timeout_ms`      | `1500`     | How long to wait for a translation. On timeout the hover says so; the translation is cached and shown on the next hover                                 |
-| `persist_cache`   | `true`     | Keep the translation cache in a file. With `false` it is kept in memory only and is gone when Zed exits (leftover cache files are deleted on startup)   |
+| Key               | Default    | Description                                                                                                                                                                                                       |
+| ----------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider`        | `"google"` | `"google"` or `"deepl"`                                                                                                                                                                                           |
+| `deepl_api_key`   | none       | [DeepL API key](https://www.deepl.com/ja/pro?cta=header-pro-api%2F#api). Free keys ending in `:fx` use the Free API. Can also be set with the `DEEPL_API_KEY` environment variable. Falls back to Google if unset |
+| `target_language` | `"ja"`     | Language to translate into                                                                                                                                                                                        |
+| `source_language` | `"auto"`   | Language to translate from                                                                                                                                                                                        |
+| `timeout_ms`      | `1500`     | How long to wait for a translation. On timeout the hover says so; the translation is cached and shown on the next hover                                                                                           |
+| `persist_cache`   | `true`     | Keep the translation cache in a file. With `false` it is kept in memory only and is gone when Zed exits (leftover cache files are deleted on startup)                                                             |
 
 Run `editor: restart language server` after changing the settings.
 
