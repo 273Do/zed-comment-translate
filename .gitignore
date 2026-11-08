@@ -1,0 +1,6 @@
+target/
+
+extension.wasm
+grammars/
+
+.DS_Store
