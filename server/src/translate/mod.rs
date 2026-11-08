@@ -16,6 +16,8 @@ use anyhow::{bail, Result};
 
 use cache::Cache;
 pub use cache::{clear as clear_cache, default_dir as default_cache_dir};
+pub use deepl::API_PAGE as DEEPL_API_PAGE;
+pub use google::API_PAGE as GOOGLE_API_PAGE;
 
 /// Page text beyond this many characters is cut from "open in ..." links.
 const MAX_PAGE_TEXT_CHARS: usize = 1000;
@@ -24,6 +26,15 @@ const MAX_PAGE_TEXT_CHARS: usize = 1000;
 pub enum ProviderKind {
     Google,
     Deepl,
+}
+
+impl ProviderKind {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Google => "Google",
+            Self::Deepl => "DeepL",
+        }
+    }
 }
 
 impl FromStr for ProviderKind {
@@ -47,6 +58,8 @@ pub enum Unavailable {
     Failed,
     /// Still in flight after the timeout; the next hover shows the result.
     Pending,
+    /// Neither provider has an API key.
+    NoApiKey,
 }
 
 /// A translated text and, when the provider reports it, its detected source language.
@@ -58,41 +71,62 @@ struct Translated {
 pub enum Provider {
     Google(google::Google),
     Deepl(deepl::Deepl),
+    /// Selected, but neither provider has an API key; only cached
+    /// translations can be shown.
+    NoApiKey(ProviderKind),
 }
 
 impl Provider {
-    /// Falls back to Google when DeepL is selected without an API key.
-    pub fn new(kind: ProviderKind, deepl_api_key: Option<String>) -> Self {
-        match (kind, deepl_api_key) {
-            (ProviderKind::Google, _) => Self::Google(google::Google),
-            (ProviderKind::Deepl, Some(api_key)) => Self::Deepl(deepl::Deepl::new(api_key)),
-            (ProviderKind::Deepl, None) => {
-                log!("DeepL needs an API key (deepl_api_key); using Google instead");
-                Self::Google(google::Google)
-            }
-        }
+    /// Falls back to the other provider when the selected one has no API key.
+    pub fn new(
+        kind: ProviderKind,
+        google_api_key: Option<String>,
+        deepl_api_key: Option<String>,
+    ) -> Self {
+        let google = google_api_key.map(|key| Self::Google(google::Google::new(key)));
+        let deepl = deepl_api_key.map(|key| Self::Deepl(deepl::Deepl::new(key)));
+        let (selected, other) = match kind {
+            ProviderKind::Google => (google, deepl),
+            ProviderKind::Deepl => (deepl, google),
+        };
+        selected
+            .or_else(|| {
+                let other = other?;
+                log!(
+                    "{} has no API key; using {} instead",
+                    kind.name(),
+                    other.name()
+                );
+                Some(other)
+            })
+            .unwrap_or_else(|| {
+                log!(
+                    "no API key: set google_api_key ({}) or deepl_api_key ({})",
+                    GOOGLE_API_PAGE,
+                    DEEPL_API_PAGE
+                );
+                Self::NoApiKey(kind)
+            })
     }
 
     pub fn kind(&self) -> ProviderKind {
         match self {
             Self::Google(_) => ProviderKind::Google,
             Self::Deepl(_) => ProviderKind::Deepl,
+            Self::NoApiKey(kind) => *kind,
         }
     }
 
     pub fn name(&self) -> &'static str {
-        match self {
-            Self::Google(_) => "Google",
-            Self::Deepl(_) => "DeepL",
-        }
+        self.kind().name()
     }
 
     /// The provider's web page with `text` filled in.
     fn page_url(&self, from: &str, to: &str, text: &str) -> String {
         let text: String = text.chars().take(MAX_PAGE_TEXT_CHARS).collect();
-        match self {
-            Self::Google(_) => google::page_url(from, to, &text),
-            Self::Deepl(_) => deepl::page_url(from, to, &text),
+        match self.kind() {
+            ProviderKind::Google => google::page_url(from, to, &text),
+            ProviderKind::Deepl => deepl::page_url(from, to, &text),
         }
     }
 
@@ -107,6 +141,7 @@ impl Provider {
         let translations = match self {
             Self::Google(google) => google.translate(client, from, to, texts).await?,
             Self::Deepl(deepl) => deepl.translate(client, from, to, texts).await?,
+            Self::NoApiKey(_) => bail!("no API key"),
         };
         if translations.len() != texts.len() {
             bail!(
@@ -190,6 +225,9 @@ impl Translator {
         missing.dedup();
 
         if !missing.is_empty() {
+            if let Provider::NoApiKey(_) = self.inner.provider {
+                return Err(Unavailable::NoApiKey);
+            }
             let inner = self.inner.clone();
             let task = tokio::spawn(async move {
                 match inner.fetch(&missing).await {
@@ -296,6 +334,27 @@ mod tests {
     #[test]
     fn encodes_urls() {
         assert_eq!(percent_encode("a b/é~"), "a%20b%2F%C3%A9~");
+    }
+
+    #[test]
+    fn falls_back_to_the_provider_with_a_key() {
+        let key = || Some("key".to_string());
+        assert_eq!(
+            Provider::new(ProviderKind::Google, key(), key()).name(),
+            "Google"
+        );
+        assert_eq!(
+            Provider::new(ProviderKind::Google, None, key()).name(),
+            "DeepL"
+        );
+        assert_eq!(
+            Provider::new(ProviderKind::Deepl, key(), None).name(),
+            "Google"
+        );
+        assert!(matches!(
+            Provider::new(ProviderKind::Deepl, None, None),
+            Provider::NoApiKey(ProviderKind::Deepl)
+        ));
     }
 
     #[test]

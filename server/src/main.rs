@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     log::init();
     let config = Config::from_env()?;
 
-    let provider = Provider::new(config.provider, config.deepl_api_key);
+    let provider = Provider::new(config.provider, config.google_api_key, config.deepl_api_key);
     log!(
         "starting (translate {} -> {} with {})",
         config.from,

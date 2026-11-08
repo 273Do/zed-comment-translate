@@ -1,15 +1,23 @@
-//! Google Translate (the keyless `translate_a` endpoint).
+//! Google Cloud Translation API (Basic, v2), authenticated with an API key.
 
-use anyhow::{Context, Result};
-use serde_json::Value;
+use anyhow::{bail, Context, Result};
+use serde_json::{json, Value};
 
 use super::{percent_encode, Translated};
 
-const ENDPOINT: &str = "https://translate.googleapis.com/translate_a/t";
+const ENDPOINT: &str = "https://translation.googleapis.com/language/translate/v2";
+/// Where to enable the API and create a key.
+pub const API_PAGE: &str = "https://console.cloud.google.com/apis/library/translate.googleapis.com";
 
-pub struct Google;
+pub struct Google {
+    api_key: String,
+}
 
 impl Google {
+    pub fn new(api_key: String) -> Self {
+        Self { api_key }
+    }
+
     pub(super) async fn translate(
         &self,
         client: &reqwest::Client,
@@ -17,38 +25,42 @@ impl Google {
         to: &str,
         texts: &[String],
     ) -> Result<Vec<Translated>> {
-        let form: Vec<(&str, &str)> = texts.iter().map(|text| ("q", text.as_str())).collect();
-        let body = client
-            .post(ENDPOINT)
-            .query(&[
-                ("client", "gtx"),
-                ("sl", from),
-                ("tl", to),
-                ("format", "html"),
-            ])
-            .form(&form)
-            .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?;
-        let response: Value = serde_json::from_str(&body).context("invalid response JSON")?;
-        let items = response.as_array().context("unexpected response shape")?;
+        let mut request = json!({
+            "q": texts,
+            "target": to,
+            // The texts are escaped HTML; `<code>` placeholders are left untouched.
+            "format": "html",
+        });
+        // Without a source, the language is detected.
+        if from != "auto" {
+            request["source"] = from.into();
+        }
 
-        // Each item is either "translation" or ["translation", "detected language"].
-        items
+        // The key goes in a header rather than the URL, so that it is not logged.
+        let response = client
+            .post(ENDPOINT)
+            .header("X-Goog-Api-Key", &self.api_key)
+            .json(&request)
+            .send()
+            .await?;
+        let status = response.status();
+        let body = response.text().await?;
+        if !status.is_success() {
+            bail!("Google returned {status}: {body}");
+        }
+
+        let response: Value = serde_json::from_str(&body).context("invalid response JSON")?;
+        response["data"]["translations"]
+            .as_array()
+            .context("unexpected response shape")?
             .iter()
             .map(|item| {
-                let (text, detected) = match item {
-                    Value::String(text) => (text.as_str(), None),
-                    _ => (
-                        item[0].as_str().context("unexpected response item")?,
-                        item[1].as_str(),
-                    ),
-                };
                 Ok(Translated {
-                    text: text.to_owned(),
-                    detected: detected.map(str::to_owned),
+                    text: item["translatedText"]
+                        .as_str()
+                        .context("unexpected response item")?
+                        .to_owned(),
+                    detected: item["detectedSourceLanguage"].as_str().map(str::to_owned),
                 })
             })
             .collect()

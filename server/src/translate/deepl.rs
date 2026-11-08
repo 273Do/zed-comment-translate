@@ -5,6 +5,9 @@ use serde_json::{json, Value};
 
 use super::{percent_encode, Translated};
 
+/// Where to sign up for the API and get a key.
+pub const API_PAGE: &str = "https://www.deepl.com/pro-api";
+
 pub struct Deepl {
     api_key: String,
 }

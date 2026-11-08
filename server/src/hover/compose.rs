@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use super::markdown::{split_marker, Block};
-use crate::translate::{ProviderKind, Unavailable};
+use crate::translate::{ProviderKind, Unavailable, DEEPL_API_PAGE, GOOGLE_API_PAGE};
 
 /// Text of the link to the provider's page.
 pub fn open_in_label(provider: ProviderKind) -> &'static str {
@@ -14,11 +14,15 @@ pub fn open_in_label(provider: ProviderKind) -> &'static str {
 }
 
 /// Shown in place of the translation when there is none.
-pub fn unavailable_notice(reason: Unavailable) -> &'static str {
+pub fn unavailable_notice(reason: Unavailable) -> String {
     match reason {
-        Unavailable::Offline => "Offline: could not translate",
-        Unavailable::Failed => "Translation failed",
-        Unavailable::Pending => "Still translating: hover again to see the translation",
+        Unavailable::Offline => "Offline: could not translate".into(),
+        Unavailable::Failed => "Translation failed".into(),
+        Unavailable::Pending => "Still translating: hover again to see the translation".into(),
+        Unavailable::NoApiKey => format!(
+            "No API key: set `google_api_key` ([Google Cloud Translation ↗]({GOOGLE_API_PAGE})) \
+             or `deepl_api_key` ([DeepL API ↗]({DEEPL_API_PAGE})) in `lsp.comment-translate.settings`"
+        ),
     }
 }
 

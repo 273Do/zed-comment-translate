@@ -27,10 +27,13 @@ pub fn server_env(settings: Option<&Value>) -> Vec<(String, String)> {
     let Some(settings) = settings else {
         return Vec::new();
     };
-    [("deepl_api_key", "COMMENT_TRANSLATE_DEEPL_API_KEY")]
-        .into_iter()
-        .filter_map(|(key, name)| Some((name.to_string(), setting_string(settings, key)?)))
-        .collect()
+    [
+        ("google_api_key", "COMMENT_TRANSLATE_GOOGLE_API_KEY"),
+        ("deepl_api_key", "COMMENT_TRANSLATE_DEEPL_API_KEY"),
+    ]
+    .into_iter()
+    .filter_map(|(key, name)| Some((name.to_string(), setting_string(settings, key)?)))
+    .collect()
 }
 
 fn setting_string(settings: &Value, key: &str) -> Option<String> {
@@ -53,6 +56,7 @@ mod tests {
             "target_language": "en",
             "timeout_ms": 800,
             "persist_cache": false,
+            "google_api_key": "google-secret",
             "deepl_api_key": "secret",
             "unrelated": 1,
         });
@@ -71,10 +75,16 @@ mod tests {
         );
         assert_eq!(
             server_env(Some(&settings)),
-            [(
-                "COMMENT_TRANSLATE_DEEPL_API_KEY".to_string(),
-                "secret".to_string()
-            )]
+            [
+                (
+                    "COMMENT_TRANSLATE_GOOGLE_API_KEY".to_string(),
+                    "google-secret".to_string()
+                ),
+                (
+                    "COMMENT_TRANSLATE_DEEPL_API_KEY".to_string(),
+                    "secret".to_string()
+                )
+            ]
         );
     }
 }

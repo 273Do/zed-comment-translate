@@ -8,6 +8,7 @@ use crate::translate::ProviderKind;
 
 pub struct Config {
     pub provider: ProviderKind,
+    pub google_api_key: Option<String>,
     pub deepl_api_key: Option<String>,
     pub from: String,
     pub to: String,
@@ -24,10 +25,8 @@ impl Config {
         let mut to = env_or("COMMENT_TRANSLATE_TO", "ja".to_string());
         let mut timeout_ms = env_or("COMMENT_TRANSLATE_TIMEOUT_MS", 1500u64);
         let mut persist_cache = env_or("COMMENT_TRANSLATE_PERSIST_CACHE", true);
-        // Passed through the environment only, so that it does not show up in `ps`.
-        let deepl_api_key = ["COMMENT_TRANSLATE_DEEPL_API_KEY", "DEEPL_API_KEY"]
-            .into_iter()
-            .find_map(|name| env::var(name).ok().filter(|key| !key.is_empty()));
+        let google_api_key = api_key(&["COMMENT_TRANSLATE_GOOGLE_API_KEY"]);
+        let deepl_api_key = api_key(&["COMMENT_TRANSLATE_DEEPL_API_KEY", "DEEPL_API_KEY"]);
 
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
@@ -44,6 +43,7 @@ impl Config {
 
         Ok(Self {
             provider,
+            google_api_key,
             deepl_api_key,
             from,
             to,
@@ -51,6 +51,13 @@ impl Config {
             persist_cache,
         })
     }
+}
+
+/// The first of the environment variables `names` that is set and not empty.
+fn api_key(names: &[&str]) -> Option<String> {
+    names
+        .iter()
+        .find_map(|name| env::var(name).ok().filter(|key| !key.is_empty()))
 }
 
 fn env_or<T: FromStr>(name: &str, default: T) -> T {
