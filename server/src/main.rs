@@ -2,7 +2,7 @@
 //! in any language `comment` knows. It runs alongside each language's usual
 //! server.
 //!
-//! Usage: comment-translate-proxy [--provider google|deepl] [--to ja] [--from auto]
+//! Usage: comment-translate-server [--provider google|deepl] [--to ja] [--from auto]
 //!        [--timeout-ms 1500] [--persist-cache true]
 //!
 //! Layers, from the outside in:

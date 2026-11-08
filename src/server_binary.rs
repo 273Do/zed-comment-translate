@@ -1,4 +1,4 @@
-//! Locating the proxy binary: PATH first, then GitHub releases.
+//! Locating the server binary: PATH first, then GitHub releases.
 
 use std::fs;
 
@@ -6,18 +6,18 @@ use zed_extension_api::{
     self as zed, LanguageServerId, LanguageServerInstallationStatus, Result, Worktree,
 };
 
-const PROXY_BINARY: &str = "comment-translate-proxy";
-/// The repository whose GitHub releases provide prebuilt proxy binaries.
+const SERVER_BINARY: &str = "comment-translate-server";
+/// The repository whose GitHub releases provide prebuilt server binaries.
 const GITHUB_REPO: &str = "273Do/zed-comment-translator";
 
 #[derive(Default)]
-pub struct ProxyBinary {
+pub struct ServerBinary {
     cached_path: Option<String>,
 }
 
-impl ProxyBinary {
+impl ServerBinary {
     pub fn path(&mut self, id: &LanguageServerId, worktree: &Worktree) -> Result<String> {
-        if let Some(path) = worktree.which(PROXY_BINARY) {
+        if let Some(path) = worktree.which(SERVER_BINARY) {
             return Ok(path);
         }
         if let Some(path) = &self.cached_path {
@@ -58,15 +58,15 @@ fn download(id: &LanguageServerId) -> Result<String> {
         zed::Os::Windows => ("zip", zed::DownloadedFileType::Zip, ".exe"),
         _ => ("tar.gz", zed::DownloadedFileType::GzipTar, ""),
     };
-    let asset_name = format!("{PROXY_BINARY}-{target}.{extension}");
+    let asset_name = format!("{SERVER_BINARY}-{target}.{extension}");
     let asset = release
         .assets
         .iter()
         .find(|asset| asset.name == asset_name)
         .ok_or_else(|| format!("no asset named {asset_name} in release {}", release.version))?;
 
-    let version_dir = format!("{PROXY_BINARY}-{}", release.version);
-    let binary_path = format!("{version_dir}/{PROXY_BINARY}{exe}");
+    let version_dir = format!("{SERVER_BINARY}-{}", release.version);
+    let binary_path = format!("{version_dir}/{SERVER_BINARY}{exe}");
     if !is_file(&binary_path) {
         zed::set_language_server_installation_status(
             id,
@@ -82,7 +82,7 @@ fn download(id: &LanguageServerId) -> Result<String> {
         {
             let name = entry.file_name();
             let name = name.to_string_lossy();
-            if name.starts_with(PROXY_BINARY) && name != version_dir {
+            if name.starts_with(SERVER_BINARY) && name != version_dir {
                 fs::remove_dir_all(entry.path()).ok();
             }
         }
