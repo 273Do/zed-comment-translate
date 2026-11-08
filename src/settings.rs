@@ -1,22 +1,6 @@
-//! Turning `lsp.<id>` and `lsp.<backend>` settings into the proxy command.
+//! Turning `lsp.comment-translate` settings into the proxy command.
 
-use zed_extension_api::{
-    serde_json::Value, settings::LspSettings, LanguageServerId, Result, Worktree,
-};
-
-/// The real language server wrapped by each proxy server declared in extension.toml.
-pub fn backend_server(id: &LanguageServerId) -> Result<&'static str> {
-    match id.as_ref() {
-        "comment-translate-rust" => Ok("rust-analyzer"),
-        other => Err(format!("unknown language server: {other}")),
-    }
-}
-
-/// Settings of the wrapped server, so that existing `lsp.rust-analyzer`
-/// configuration keeps working.
-pub fn backend_settings(id: &LanguageServerId, worktree: &Worktree) -> Result<LspSettings> {
-    Ok(LspSettings::for_worktree(backend_server(id)?, worktree).unwrap_or_default())
-}
+use zed_extension_api::serde_json::Value;
 
 /// Converts `lsp.<id>.settings` into proxy arguments.
 pub fn proxy_args(settings: Option<&Value>) -> Vec<String> {
@@ -27,7 +11,6 @@ pub fn proxy_args(settings: Option<&Value>) -> Vec<String> {
         ("provider", "--provider"),
         ("target_language", "--to"),
         ("source_language", "--from"),
-        ("show_original", "--show-original"),
         ("timeout_ms", "--timeout-ms"),
         ("persist_cache", "--persist-cache"),
     ];
@@ -68,7 +51,6 @@ mod tests {
         let settings = json!({
             "provider": "deepl",
             "target_language": "en",
-            "show_original": false,
             "timeout_ms": 800,
             "persist_cache": false,
             "deepl_api_key": "secret",
@@ -81,8 +63,6 @@ mod tests {
                 "deepl",
                 "--to",
                 "en",
-                "--show-original",
-                "false",
                 "--timeout-ms",
                 "800",
                 "--persist-cache",

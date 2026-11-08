@@ -1,8 +1,8 @@
-//! Translations kept in memory and in a file, so that documentation seen
-//! before is shown without a request: instantly, offline and after a restart.
+//! Translations kept in memory and in a file, so that comments seen before are
+//! shown without a request: instantly, offline and after a restart.
 //!
-//! Entries are keyed by the source text, so the same documentation hovered in
-//! different places (e.g. `String`) shares one entry. The file holds one JSON
+//! Entries are keyed by the source text, so the same text in different places
+//! (e.g. a license header) shares one entry. The file holds one JSON
 //! array `["source", "translation" | null]` per line and is only appended to.
 //! With `persist_cache: false` there is no file and entries last until exit.
 

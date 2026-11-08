@@ -1,16 +1,18 @@
-//! A transparent LSP proxy that adds a translation of the documentation to
-//! `textDocument/hover` responses.
+//! A language server that translates the comment under the cursor on hover,
+//! in any language `comment` knows. It runs alongside each language's usual
+//! server.
 //!
 //! Usage: comment-translate-proxy [--provider google|deepl] [--to ja] [--from auto]
-//!        [--timeout-ms 1500] [--show-original true] [--persist-cache true]
-//!        -- <server> [args...]
+//!        [--timeout-ms 1500] [--persist-cache true]
 //!
 //! Layers, from the outside in:
-//! - `lsp`: framing and relaying messages between Zed and the wrapped server
-//! - `hover`: rewriting hover markdown (parsing, composing the new popup)
+//! - `lsp`: framing, tracking open documents, answering requests
+//! - `comment`: finding the comment under the cursor
+//! - `hover`: composing the popup (parsing the comment's markdown, the link)
 //! - `translate`: caching (in memory and on disk) and timeouts in front of a
 //!   translation provider
 
+mod comment;
 mod config;
 mod hover;
 #[macro_use]
@@ -18,10 +20,9 @@ mod log;
 mod lsp;
 mod translate;
 
-use std::{process::Stdio, sync::Arc};
+use std::sync::Arc;
 
-use anyhow::{Context, Result};
-use tokio::process::Command;
+use anyhow::Result;
 
 use config::Config;
 use hover::HoverTranslator;
@@ -31,12 +32,10 @@ use translate::{clear_cache, default_cache_dir, Provider, Translator};
 async fn main() -> Result<()> {
     log::init();
     let config = Config::from_env()?;
-    let server = lsp::server::resolve(&config.server);
 
     let provider = Provider::new(config.provider, config.deepl_api_key);
     log!(
-        "starting {} (translate {} -> {} with {})",
-        server.display(),
+        "starting (translate {} -> {} with {})",
         config.from,
         config.to,
         provider.name()
@@ -53,18 +52,9 @@ async fn main() -> Result<()> {
         config.timeout,
         cache_dir.filter(|_| config.persist_cache),
     )?;
-    let hover = Arc::new(HoverTranslator::new(translator, config.show_original));
+    let hover = Arc::new(HoverTranslator::new(translator));
 
-    let child = Command::new(&server)
-        .args(&config.server_args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .kill_on_drop(true)
-        .spawn()
-        .with_context(|| format!("failed to start {}", server.display()))?;
-
-    let status = lsp::run(child, hover).await?;
-    log!("server exited with {status}");
-    std::process::exit(status.code().unwrap_or(1));
+    let shut_down = lsp::serve(hover).await?;
+    log!("client closed the connection");
+    std::process::exit(if shut_down { 0 } else { 1 });
 }

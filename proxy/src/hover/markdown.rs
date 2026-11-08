@@ -1,6 +1,4 @@
-//! Splitting hover markdown into blocks, and finding the prose to translate.
-
-use serde_json::Value;
+//! Splitting a comment's markdown into blocks, and finding the prose to translate.
 
 pub enum Block {
     /// Code blocks, rules and code-only paragraphs, kept as-is.
@@ -27,28 +25,6 @@ impl Block {
             .iter()
             .map(|line| split_marker(line).1)
             .filter(|text| has_words(text))
-    }
-}
-
-/// Converts `Hover.contents` (a `MarkupContent`, a `MarkedString` or an array of
-/// `MarkedString`s) to markdown.
-pub fn hover_markdown(contents: &Value) -> String {
-    match contents {
-        Value::String(text) => text.clone(),
-        Value::Object(object) if object.contains_key("kind") => {
-            object["value"].as_str().unwrap_or_default().to_owned()
-        }
-        Value::Object(object) => format!(
-            "```{}\n{}\n```",
-            object["language"].as_str().unwrap_or_default(),
-            object["value"].as_str().unwrap_or_default()
-        ),
-        Value::Array(items) => items
-            .iter()
-            .map(hover_markdown)
-            .collect::<Vec<_>>()
-            .join("\n\n"),
-        _ => String::new(),
     }
 }
 
@@ -142,12 +118,10 @@ fn has_words(text: &str) -> bool {
 }
 
 #[cfg(test)]
-pub(super) mod tests {
-    use serde_json::json;
-
+mod tests {
     use super::*;
 
-    pub const HOVER: &str = "```rust\nalloc::vec::Vec\n```\n\n```rust\npub fn len(&self) -> usize\n```\n\n---\n\n`T` = `i32`, `A` = `Global`\n\n---\n\nReturns the number of elements, also referred to\nas its 'length'.\n\n# Examples\n\n```\nlet a = vec![1];\n```\n\nSee also:\n- `capacity`\n- the `is_empty` method";
+    const HOVER: &str = "```rust\nalloc::vec::Vec\n```\n\n```rust\npub fn len(&self) -> usize\n```\n\n---\n\n`T` = `i32`, `A` = `Global`\n\n---\n\nReturns the number of elements, also referred to\nas its 'length'.\n\n# Examples\n\n```\nlet a = vec![1];\n```\n\nSee also:\n- `capacity`\n- the `is_empty` method";
 
     #[test]
     fn collects_prose_to_translate() {
@@ -162,11 +136,5 @@ pub(super) mod tests {
                 "the `is_empty` method",
             ]
         );
-    }
-
-    #[test]
-    fn converts_marked_strings() {
-        let contents = json!([{ "language": "rust", "value": "fn f()" }, "Docs."]);
-        assert_eq!(hover_markdown(&contents), "```rust\nfn f()\n```\n\nDocs.");
     }
 }

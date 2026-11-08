@@ -37,7 +37,7 @@ fn protected_span(s: &str) -> Option<usize> {
     if link.starts_with('[') {
         let label_end = link.find(']')?;
         if !link[label_end + 1..].starts_with('(') {
-            // A reference like [`String`] whose target rust-analyzer could not resolve.
+            // An intra-doc link like [`String`], which has no URL in source code.
             let label = &link[1..label_end];
             let is_code = label.len() >= 2 && label.starts_with('`') && label.ends_with('`');
             return is_code.then_some(label_end + 1 + s.len() - link.len());

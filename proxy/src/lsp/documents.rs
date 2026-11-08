@@ -32,15 +32,20 @@ impl Encoding {
     }
 }
 
+pub struct Document {
+    pub language_id: String,
+    pub text: String,
+}
+
 #[derive(Default)]
 pub struct Documents {
     pub encoding: Encoding,
-    texts: HashMap<String, String>,
+    documents: HashMap<String, Document>,
 }
 
 impl Documents {
-    pub fn text(&self, uri: &str) -> Option<&str> {
-        self.texts.get(uri).map(String::as_str)
+    pub fn get(&self, uri: &str) -> Option<&Document> {
+        self.documents.get(uri)
     }
 
     /// Applies a `textDocument/didOpen`, `didChange` or `didClose` notification.
@@ -51,12 +56,21 @@ impl Documents {
         };
         match message["method"].as_str() {
             Some("textDocument/didOpen") => {
-                let text = params["textDocument"]["text"].as_str().unwrap_or_default();
-                self.texts.insert(uri.to_owned(), text.to_owned());
+                let document = &params["textDocument"];
+                self.documents.insert(
+                    uri.to_owned(),
+                    Document {
+                        language_id: document["languageId"]
+                            .as_str()
+                            .unwrap_or_default()
+                            .to_owned(),
+                        text: document["text"].as_str().unwrap_or_default().to_owned(),
+                    },
+                );
             }
             Some("textDocument/didChange") => {
                 let encoding = self.encoding;
-                let Some(text) = self.texts.get_mut(uri) else {
+                let Some(Document { text, .. }) = self.documents.get_mut(uri) else {
                     return;
                 };
                 for change in params["contentChanges"].as_array().into_iter().flatten() {
@@ -72,7 +86,7 @@ impl Documents {
                 }
             }
             Some("textDocument/didClose") => {
-                self.texts.remove(uri);
+                self.documents.remove(uri);
             }
             _ => {}
         }
@@ -132,7 +146,8 @@ mod tests {
     #[test]
     fn applies_changes() {
         let mut documents = Documents::default();
-        let uri = json!({ "uri": "file:///a.rs", "text": "// hello\nfn f() {}" });
+        let uri =
+            json!({ "uri": "file:///a.rs", "languageId": "rust", "text": "// hello\nfn f() {}" });
         documents
             .apply(&json!({ "method": "textDocument/didOpen", "params": { "textDocument": uri } }));
         documents.apply(&json!({
@@ -148,11 +163,10 @@ mod tests {
                 }]
             }
         }));
-        assert_eq!(
-            documents.text("file:///a.rs"),
-            Some("// こんにちは\nfn g() {}")
-        );
+        let document = documents.get("file:///a.rs").unwrap();
+        assert_eq!(document.language_id, "rust");
+        assert_eq!(document.text, "// こんにちは\nfn g() {}");
         documents.apply(&json!({ "method": "textDocument/didClose", "params": { "textDocument": { "uri": "file:///a.rs" } } }));
-        assert_eq!(documents.text("file:///a.rs"), None);
+        assert!(documents.get("file:///a.rs").is_none());
     }
 }

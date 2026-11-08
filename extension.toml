@@ -1,12 +1,140 @@
 id = "comment-translate"
 name = "Comment Translate"
-description = "Shows translated documentation (Google / DeepL) in hover popups via an LSP proxy."
+description = "Translates comments in hover popups (Google / DeepL), in any of 60+ languages."
 version = "0.1.0"
 schema_version = 1
 authors = ["273* <273dodev@gmail.com>"]
 repository = "https://github.com/273Do/zed-comment-translator"
 
-[language_servers.comment-translate-rust]
-name = "Comment Translate (rust-analyzer)"
-languages = ["Rust"]
-language_ids = { "Rust" = "rust" }
+[language_servers.comment-translate]
+name = "Comment Translate"
+languages = [
+  "Rust",
+  "Python",
+  "JavaScript",
+  "TypeScript",
+  "TSX",
+  "Go",
+  "C",
+  "C++",
+  "C#",
+  "Java",
+  "Kotlin",
+  "Swift",
+  "Objective-C",
+  "Scala",
+  "Dart",
+  "Zig",
+  "Gleam",
+  "PHP",
+  "Ruby",
+  "Shell Script",
+  "Fish",
+  "Perl",
+  "R",
+  "Elixir",
+  "Lua",
+  "Haskell",
+  "Elm",
+  "OCaml",
+  "F#",
+  "Clojure",
+  "Scheme",
+  "Racket",
+  "Emacs Lisp",
+  "Erlang",
+  "Julia",
+  "Nim",
+  "GDScript",
+  "PowerShell",
+  "SQL",
+  "CSS",
+  "SCSS",
+  "Less",
+  "HTML",
+  "XML",
+  "Vue.js",
+  "Svelte",
+  "Astro",
+  "YAML",
+  "TOML",
+  "JSONC",
+  "Dockerfile",
+  "Makefile",
+  "CMake",
+  "Nix",
+  "Terraform",
+  "HCL",
+  "Proto",
+  "GLSL",
+  "HLSL",
+  "WGSL",
+  "Solidity",
+  "Groovy",
+  "LaTeX",
+]
+
+[language_servers.comment-translate.language_ids]
+"Rust" = "rust"
+"Python" = "python"
+"JavaScript" = "javascript"
+"TypeScript" = "typescript"
+"TSX" = "typescriptreact"
+"Go" = "go"
+"C" = "c"
+"C++" = "cpp"
+"C#" = "csharp"
+"Java" = "java"
+"Kotlin" = "kotlin"
+"Swift" = "swift"
+"Objective-C" = "objective-c"
+"Scala" = "scala"
+"Dart" = "dart"
+"Zig" = "zig"
+"Gleam" = "gleam"
+"PHP" = "php"
+"Ruby" = "ruby"
+"Shell Script" = "shellscript"
+"Fish" = "fish"
+"Perl" = "perl"
+"R" = "r"
+"Elixir" = "elixir"
+"Lua" = "lua"
+"Haskell" = "haskell"
+"Elm" = "elm"
+"OCaml" = "ocaml"
+"F#" = "fsharp"
+"Clojure" = "clojure"
+"Scheme" = "scheme"
+"Racket" = "racket"
+"Emacs Lisp" = "elisp"
+"Erlang" = "erlang"
+"Julia" = "julia"
+"Nim" = "nim"
+"GDScript" = "gdscript"
+"PowerShell" = "powershell"
+"SQL" = "sql"
+"CSS" = "css"
+"SCSS" = "scss"
+"Less" = "less"
+"HTML" = "html"
+"XML" = "xml"
+"Vue.js" = "vue"
+"Svelte" = "svelte"
+"Astro" = "astro"
+"YAML" = "yaml"
+"TOML" = "toml"
+"JSONC" = "jsonc"
+"Dockerfile" = "dockerfile"
+"Makefile" = "makefile"
+"CMake" = "cmake"
+"Nix" = "nix"
+"Terraform" = "terraform"
+"HCL" = "hcl"
+"Proto" = "proto"
+"GLSL" = "glsl"
+"HLSL" = "hlsl"
+"WGSL" = "wgsl"
+"Solidity" = "solidity"
+"Groovy" = "groovy"
+"LaTeX" = "latex"

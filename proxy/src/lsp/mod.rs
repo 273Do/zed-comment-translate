@@ -1,171 +1,129 @@
-//! Relaying LSP messages between Zed and the wrapped server, rewriting only
-//! `textDocument/hover` responses. Open documents are tracked so that hovers
-//! over comments can be answered too.
+//! A language server, run alongside each language's usual server, that answers
+//! hovers over comments with their translation.
 
 mod documents;
-pub mod server;
 mod transport;
 
-use std::{
-    collections::HashMap,
-    process::ExitStatus,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Instant};
 
-use anyhow::{Context, Result};
-use serde_json::Value;
-use tokio::{io::BufReader, process::Child, sync::mpsc};
+use anyhow::Result;
+use serde_json::{json, Value};
+use tokio::{io::BufReader, sync::mpsc};
 
-use crate::hover::{find_comment, HoverTranslator};
+use crate::{comment::find_comment, hover::HoverTranslator};
 use documents::{offset, position, Documents, Encoding};
 use transport::{read_message, write_message};
 
-/// The comment under the cursor of a hover request.
-struct HoveredComment {
-    text: String,
-    range: Value,
-}
-
-/// In-flight hover requests, keyed by the JSON representation of their ids.
-type HoverRequests = Arc<Mutex<HashMap<String, Option<HoveredComment>>>>;
-
-/// Relays stdin/stdout to the server until it exits, and returns its status.
-pub async fn run(mut child: Child, hover: Arc<HoverTranslator>) -> Result<ExitStatus> {
-    let server_stdin = child.stdin.take().context("no server stdin")?;
-    let mut server_stdout = BufReader::new(child.stdout.take().context("no server stdout")?);
-    let hover_requests = HoverRequests::default();
-    let documents = Arc::new(Mutex::new(Documents::default()));
-
+/// Serves stdin/stdout until `exit`, and returns whether `shutdown` came first.
+pub async fn serve(hover: Arc<HoverTranslator>) -> Result<bool> {
     // All writes to Zed go through one task so that frames never interleave.
-    let (client_tx, mut client_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+    let (client_tx, mut client_rx) = mpsc::unbounded_channel::<Value>();
     let client_writer = tokio::spawn(async move {
         let mut stdout = tokio::io::stdout();
-        while let Some(body) = client_rx.recv().await {
-            write_message(&mut stdout, &body).await?;
+        while let Some(message) = client_rx.recv().await {
+            write_message(&mut stdout, &serde_json::to_vec(&message)?).await?;
         }
         anyhow::Ok(())
     });
+    let respond = |id: Value, result: Value| {
+        let _ = client_tx.send(json!({ "jsonrpc": "2.0", "id": id, "result": result }));
+    };
 
-    tokio::spawn(forward_client_messages(
-        server_stdin,
-        hover_requests.clone(),
-        documents.clone(),
-    ));
-
-    while let Some(body) = read_message(&mut server_stdout).await? {
-        let response = serde_json::from_slice::<Value>(&body)
-            .ok()
-            .filter(|message| message.get("method").is_none());
-        if let Some(capabilities) = response
-            .as_ref()
-            .and_then(|message| message.pointer("/result/capabilities"))
-        {
-            let encoding = capabilities["positionEncoding"]
-                .as_str()
-                .unwrap_or("utf-16");
-            documents.lock().unwrap().encoding = Encoding::from_lsp(encoding);
-        }
-        let hover_response = response.and_then(|message| {
-            let id = message.get("id")?.to_string();
-            let comment = hover_requests.lock().unwrap().remove(&id)?;
-            Some((message, comment))
-        });
-
-        match hover_response {
-            Some((message, comment)) => {
+    let mut documents = Documents::default();
+    let mut shut_down = false;
+    let mut stdin = BufReader::new(tokio::io::stdin());
+    while let Some(body) = read_message(&mut stdin).await? {
+        let Ok(message) = serde_json::from_slice::<Value>(&body) else {
+            continue;
+        };
+        let method = message["method"].as_str().unwrap_or_default();
+        match (method, message.get("id").cloned()) {
+            ("initialize", Some(id)) => {
+                documents.encoding = negotiate_encoding(&message["params"]);
+                let encoding = match documents.encoding {
+                    Encoding::Utf8 => "utf-8",
+                    Encoding::Utf16 => "utf-16",
+                    Encoding::Utf32 => "utf-32",
+                };
+                respond(
+                    id,
+                    json!({
+                        "capabilities": {
+                            "positionEncoding": encoding,
+                            // Full open/close notifications and incremental changes.
+                            "textDocumentSync": { "openClose": true, "change": 2 },
+                            "hoverProvider": true,
+                        },
+                        "serverInfo": { "name": env!("CARGO_PKG_NAME"), "version": env!("CARGO_PKG_VERSION") },
+                    }),
+                );
+            }
+            ("shutdown", Some(id)) => {
+                shut_down = true;
+                respond(id, Value::Null);
+            }
+            ("exit", None) => break,
+            ("textDocument/hover", Some(id)) => {
+                log!("hover request {id}");
+                let comment = hovered_comment(&documents, &message["params"]);
+                let message = json!({ "jsonrpc": "2.0", "id": id, "result": null });
+                let Some((text, range)) = comment else {
+                    let _ = client_tx.send(message);
+                    continue;
+                };
                 let hover = hover.clone();
                 let client_tx = client_tx.clone();
                 tokio::spawn(async move {
-                    let message = rewrite_hover(message, comment, &hover).await;
-                    let _ = client_tx.send(serde_json::to_vec(&message).unwrap());
+                    let started = Instant::now();
+                    let message = hover.comment(message, &text, range).await;
+                    let outcome = if message["result"].is_null() {
+                        "empty"
+                    } else {
+                        "translated"
+                    };
+                    log!("hover response {id}: {outcome} in {:?}", started.elapsed());
+                    let _ = client_tx.send(message);
                 });
             }
-            None => {
-                let _ = client_tx.send(body);
+            (method, None) if method.starts_with("textDocument/did") => documents.apply(&message),
+            // Other requests are not supported; responses and other notifications are ignored.
+            (method, Some(id)) if !method.is_empty() => {
+                let _ = client_tx.send(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "error": { "code": -32601, "message": format!("unsupported method: {method}") },
+                }));
             }
+            _ => {}
         }
     }
 
-    // The server closed its stdout: flush what is pending and report its status.
     drop(client_tx);
-    let _ = tokio::time::timeout(Duration::from_secs(2), client_writer).await;
-    Ok(child.wait().await?)
+    let _ = client_writer.await;
+    Ok(shut_down)
 }
 
-/// Forwards everything from Zed to the server, keeping the open documents up
-/// to date and remembering hover requests with the comment under the cursor.
-async fn forward_client_messages(
-    mut server_stdin: tokio::process::ChildStdin,
-    hover_requests: HoverRequests,
-    documents: Arc<Mutex<Documents>>,
-) {
-    let result = async {
-        let mut stdin = BufReader::new(tokio::io::stdin());
-        while let Some(body) = read_message(&mut stdin).await? {
-            if let Ok(message) = serde_json::from_slice::<Value>(&body) {
-                let method = message["method"].as_str().unwrap_or_default();
-                if method == "textDocument/hover" {
-                    if let Some(id) = message.get("id") {
-                        log!("hover request {id}");
-                        let comment =
-                            hovered_comment(&documents.lock().unwrap(), &message["params"]);
-                        hover_requests
-                            .lock()
-                            .unwrap()
-                            .insert(id.to_string(), comment);
-                    }
-                } else if method.starts_with("textDocument/did") {
-                    documents.lock().unwrap().apply(&message);
-                }
-            }
-            write_message(&mut server_stdin, &body).await?;
-        }
-        // Dropping server_stdin here signals EOF to the server.
-        anyhow::Ok(())
-    }
-    .await;
-    match result {
-        Ok(()) => log!("client closed the connection"),
-        Err(error) => log!("forwarding to the server failed: {error:#}"),
-    }
+/// The first position encoding the client offers that we support, UTF-16 by default.
+fn negotiate_encoding(params: &Value) -> Encoding {
+    params
+        .pointer("/capabilities/general/positionEncodings")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .find(|name| ["utf-8", "utf-16", "utf-32"].contains(name))
+        .map_or(Encoding::Utf16, Encoding::from_lsp)
 }
 
-/// The comment at the position of `textDocument/hover` params, if any.
-fn hovered_comment(documents: &Documents, params: &Value) -> Option<HoveredComment> {
-    let text = documents.text(params["textDocument"]["uri"].as_str()?)?;
-    let comment = find_comment(text, offset(text, &params["position"], documents.encoding))?;
-    Some(HoveredComment {
-        text: comment.text,
-        range: serde_json::json!({
-            "start": position(text, comment.start, documents.encoding),
-            "end": position(text, comment.end, documents.encoding),
-        }),
-    })
-}
-
-async fn rewrite_hover(
-    message: Value,
-    comment: Option<HoveredComment>,
-    hover: &HoverTranslator,
-) -> Value {
-    let started = Instant::now();
-    let id = message["id"].clone();
-    let original = message["result"].clone();
-    let message = match comment {
-        // The server has nothing to show over a comment (and no error).
-        Some(comment) if original.is_null() && message.get("error").is_none() => {
-            hover.comment(message, &comment.text, comment.range).await
-        }
-        _ => hover.augment(message).await,
-    };
-    let outcome = if message["result"].is_null() {
-        "empty"
-    } else if message["result"] == original {
-        "unchanged"
-    } else {
-        "rewritten"
-    };
-    log!("hover response {id}: {outcome} in {:?}", started.elapsed());
-    message
+/// The text and LSP range of the comment at the position of hover params.
+fn hovered_comment(documents: &Documents, params: &Value) -> Option<(String, Value)> {
+    let document = documents.get(params["textDocument"]["uri"].as_str()?)?;
+    let text = &document.text;
+    let at = offset(text, &params["position"], documents.encoding);
+    let comment = find_comment(&document.language_id, text, at)?;
+    let range = json!({
+        "start": position(text, comment.start, documents.encoding),
+        "end": position(text, comment.end, documents.encoding),
+    });
+    Some((comment.text, range))
 }
